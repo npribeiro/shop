@@ -1,4 +1,4 @@
-import { globalCss } from ".";
+import { globalCss } from '.'
 
 export const globalStyles = globalCss({
   '*': {
@@ -8,13 +8,28 @@ export const globalStyles = globalCss({
   },
 
   body: {
-    '-webkit-font-smoothing': 'antialiased',
     backgroundColor: '$gray900',
-    color: '$gray100'
+    color: '$gray100',
+    '-webkit-font-smoothing': 'antialiased',
+    overflowX: 'hidden',
   },
 
   'body, input, textarea, button': {
     fontFamily: 'Roboto',
-    fontWeight: 400
+    fontWeight: 400,
+  },
+
+  '::-webkit-scrollbar': {
+    width: '3px',
+    height: 0,
+  },
+
+  '::-webkit-scrollbar-track': {
+    background: 'transparent',
+  },
+
+  '::-webkit-scrollbar-thumb': {
+    backgroundColor: '#a8a8a8',
+    borderRadius: '10px',
   }
 })

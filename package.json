@@ -16,9 +16,12 @@
     "eslint-config-next": "13.2.3",
     "keen-slider": "^6.8.5",
     "next": "13.2.3",
+    "phosphor-react": "^1.4.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "stripe": "^11.14.0"
+    "react-loading-skeleton": "^3.2.0",
+    "stripe": "^11.14.0",
+    "use-shopping-cart": "^3.1.5"
   },
   "devDependencies": {
     "@types/node": "^18.14.4",

@@ -1,13 +1,18 @@
-import axios from "axios";
 import { GetStaticPaths, GetStaticProps } from "next"
 import Head from "next/head";
 import Image from "next/image";
-import { useState } from "react";
-// import { useRouter } from "next/router";
 import Stripe from "stripe";
 
 import { stripe } from "../../lib/stripe";
-import { ImageContainer, ProductContainer, ProductDetails } from "../../styles/pages/product"
+import { ImageContainer, ProductContainer, ProductDetails, ProductDetailsLoading } from "../../styles/pages/product"
+
+import Skeleton, { SkeletonTheme } from 'react-loading-skeleton'
+import 'react-loading-skeleton/dist/skeleton.css'
+
+import { useCart } from '../../hooks/useCart'
+import { useRouter } from "next/router";
+
+import { formatPrice } from '../../utils/formatPrice'
 
 interface ProductProps {
   product: {
@@ -15,39 +20,40 @@ interface ProductProps {
     name: string
     imageUrl: string
     price: string
+    priceFormatted: string;
     description: string
     defaultPriceId: string
   }
 }
 
 export default function Product({ product }: ProductProps) {
-  /*const { isFallback } = useRouter()
+  const { addProductToCart } = useCart()
+  const { isFallback } = useRouter()
 
-  if (isFallback) {
-    return <p>Loading...</p>
-  }*/
+  if(isFallback || !product) {
+    return (
+      <SkeletonTheme baseColor="#202024" highlightColor="#25252F">
+        <ProductContainer>
+          <Skeleton className="imageLoading"/>  
+          <ProductDetailsLoading>
+            <Skeleton className="titleLoading"/>
+            <Skeleton className="priceLoading" />
+            <div className="descriptionLoading">
+              <Skeleton count={5} />
+            </div>  
+            <div className="buttonLoading">
+              <Skeleton />
+            </div>
+          </ProductDetailsLoading>
+        </ProductContainer>
+      </SkeletonTheme>
+    )
+  }
 
-  // const router = useRouter() *se fosse uma pagina dentro da aplicação
-
-  const [isCreatingCheckoutSession, setIsCreatingCheckoutSession] = useState (false)
-
-  async function handleBuyButton(){
-    try {
-      const response = await axios.post('/api/checkout', {
-        priceId: product.defaultPriceId,
-      })
-
-      const { checkoutUrl } = response.data;
-
-      // router.push('checkout')
-
-      window.location.href = checkoutUrl
-
-    } catch (err) {
-      // conectar com uma ferramente de observabilidade (datadog / sentry )
-      setIsCreatingCheckoutSession(false)
-      alert('Falha ao redirecionar ao checkout!')
-    }
+  async function handleAddToCart(product : any) {
+    const productToAdd = { ...product, amount: 1 }
+    
+    addProductToCart(productToAdd)
   }
   
   return (
@@ -63,11 +69,14 @@ export default function Product({ product }: ProductProps) {
 
       <ProductDetails>
         <h1>{product.name}</h1>
-        <span>{product.price}</span>
+        <span>{product.priceFormatted}</span>
 
         <p>{product.description}</p>
-          <button disabled={isCreatingCheckoutSession} onClick={handleBuyButton}>
-          Comprar agora
+          
+        <button 
+          onClick={() => handleAddToCart(product)}
+        >
+          Colocar na sacola
         </button>
         
         </ProductDetails>
@@ -77,39 +86,47 @@ export default function Product({ product }: ProductProps) {
   }
 
   export const getStaticPaths: GetStaticPaths = async () => {
+    const { data } = await stripe.products.list({
+      limit: 5
+    })
+  
+    const paths = data.map(product => ({
+      params: { id: product.id },
+    }))
+  
     return {
-      paths: [
-        { params: { id: 'prod_MIwMNZU8sIbVfI'}} // colocar os produtos mais acessados
-      ],
-      //fallback: true,
-      fallback: 'blocking',
+      paths,
+      fallback: true
     }
   }
-
-
-  export const getStaticProps: GetStaticProps<any, { id: string }> = async ({ params }) => {
+  
+  export const getStaticProps: GetStaticProps<any, { id: string}> = async ({ params }) => {
     const productId = params.id;
+    
+    try {
+      const product = await stripe.products.retrieve(productId, {
+        expand: ['default_price'],
+      })
   
-    const product = await stripe.products.retrieve(productId, {
-      expand: ['default_price']
-    });
+      const price = product.default_price as Stripe.Price
   
-    const price = product.default_price as Stripe.Price;
-  
-    return {
-      props: {
-        product: {
-          id: product.id,
-          name: product.name,
-          imageUrl: product.images[0],
-          price: new Intl.NumberFormat('pt', {
-            style: 'currency',
-            currency: 'EUR'
-          }).format(price.unit_amount as number / 100),
-          description: product.description,
-          defaultPriceId: price.id,
-        }
-      },
-      revalidate: 60 * 60 * 1 // 1 hours
+      return {
+        props: {
+          product: {
+            id: product.id,
+            name: product.name,
+            imageUrl: product.images[0],
+            price: (price.unit_amount! / 100),
+            priceFormatted: formatPrice(price.unit_amount! / 100),
+            description: product.description,
+            defaultPriceId: price.id,
+          }
+        },
+        revalidate: 60 * 60 * 2 // 2 hours
+      }
+    } catch (error) {
+      return {
+        notFound: true
+      }  
     }
   }
